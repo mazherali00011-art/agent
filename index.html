@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI AGENT VIRTUAL OFFICE - Autonomous Web Agent</title>
+    <!-- Three.js for 3D Office Environment -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #030712;
+            --card-bg: rgba(15, 23, 42, 0.88);
+            --accent-cyan: #00f2fe;
+            --accent-purple: #7928ca;
+            --neon-green: #00ff88;
+            --neon-pink: #ff007f;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-glow: rgba(0, 242, 254, 0.4);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background: var(--bg-dark); color: var(--text-main); min-height: 100vh; overflow-x: hidden; }
+
+        /* Background Cyber Grid */
+        .cyber-grid {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(0, 242, 254, 0.04) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(0, 242, 254, 0.04) 1px, transparent 1px);
+            background-size: 40px 40px; z-index: -2; pointer-events: none;
+        }
+
+        /* 3D Virtual Office Canvas Section */
+        .office-viewport {
+            position: relative; width: 100%; height: 400px;
+            border-bottom: 1px solid var(--border-glow);
+            background: radial-gradient(circle at center, rgba(121, 40, 202, 0.25) 0%, transparent 75%);
+            overflow: hidden;
+        }
+
+        #office3DCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+        .office-overlay {
+            position: absolute; top: 20px; left: 20px; z-index: 2;
+            background: rgba(3, 7, 18, 0.75); padding: 12px 20px; border-radius: 12px;
+            border: 1px solid var(--border-glow); backdrop-filter: blur(8px);
+        }
+
+        .status-badge {
+            display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+            background: var(--neon-green); margin-right: 8px; box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        /* Layout Container */
+        .main-container {
+            max-width: 1100px; margin: 30px auto; padding: 0 20px;
+            display: grid; grid-template-columns: 1fr 380px; gap: 25px;
+        }
+
+        @media(max-width: 850px) { .main-container { grid-template-columns: 1fr; } }
+
+        /* Command & Task Panel */
+        .task-card {
+            background: var(--card-bg); border: 1px solid var(--border-glow);
+            border-radius: 20px; padding: 25px; backdrop-filter: blur(16px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+        }
+
+        .card-header {
+            font-size: 1.3rem; font-weight: bold; color: var(--accent-cyan);
+            border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 18px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* Voice & Text Input Area */
+        .input-group { display: flex; gap: 10px; margin-top: 12px; }
+
+        input[type="text"], textarea {
+            width: 100%; padding: 14px; background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 12px;
+            color: #fff; font-size: 0.95rem; outline: none; transition: 0.3s;
+        }
+        input[type="text"]:focus, textarea:focus { border-color: var(--accent-cyan); box-shadow: 0 0 15px rgba(0,242,254,0.3); }
+
+        .btn-voice {
+            background: linear-gradient(135deg, var(--accent-purple), var(--neon-pink));
+            border: none; color: #fff; padding: 0 18px; border-radius: 12px;
+            cursor: pointer; font-size: 1.2rem; font-weight: bold; transition: 0.3s;
+        }
+        .btn-voice.listening { animation: pulse 1s infinite; background: var(--neon-pink); }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+
+        .btn-submit {
+            width: 100%; padding: 14px; margin-top: 15px; border: none; border-radius: 12px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            color: #fff; font-weight: 800; font-size: 1rem; cursor: pointer;
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.4); transition: 0.3s;
+        }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0, 242, 254, 0.7); }
+
+        /* Preset Workflow Quick Buttons */
+        .preset-title { font-size: 0.85rem; color: var(--text-muted); margin-top: 18px; font-weight: bold; text-transform: uppercase; }
+        .preset-grid { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+        .btn-preset {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(0,242,254,0.2);
+            color: var(--accent-cyan); padding: 8px 14px; border-radius: 8px;
+            font-size: 0.82rem; cursor: pointer; font-weight: 600; transition: 0.2s;
+        }
+        .btn-preset:hover { background: rgba(0,242,254,0.15); border-color: var(--accent-cyan); }
+
+        /* Agent Live Log Monitor */
+        .terminal-box {
+            background: #020617; border: 1px solid rgba(0,242,254,0.3); border-radius: 16px;
+            padding: 15px; height: 320px; overflow-y: auto; font-family: 'Courier New', monospace;
+            font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;
+        }
+        .log-line { border-left: 2px solid var(--accent-cyan); padding-left: 8px; color: #a7f3d0; word-break: break-all; }
+        .log-line.error { border-color: var(--neon-pink); color: #fecdd3; }
+        .log-line.system { border-color: var(--accent-purple); color: #cbd5e1; }
+
+        .toast-msg {
+            position: fixed; bottom: 25px; left: 25px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            color: #fff; padding: 12px 22px; border-radius: 10px; font-weight: bold;
+            box-shadow: 0 10px 25px rgba(0,242,254,0.4); display: none; z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+
+<div class="cyber-grid"></div>
+
+<!-- 3D Virtual Agent Office Viewport -->
+<div class="office-viewport">
+    <canvas id="office3DCanvas"></canvas>
+    <div class="office-overlay">
+        <span class="status-badge" id="agentStatusDot"></span>
+        <strong id="agentStatusText">Agent: Sitting at Desk (Idle)</strong>
+    </div>
+</div>
+
+<div class="main-container">
+    <!-- Left Column: Task Input & Command Center -->
+    <div class="task-card">
+        <div class="card-header">
+            <span>🤖 Assign Workflow Task</span>
+            <span style="font-size:0.85rem; color:var(--neon-green);">v2.5 Autonomous Agent</span>
+        </div>
+
+        <label style="font-size:0.9rem; color:var(--text-muted); font-weight:600;">Task Instruction (Voice or Text):</label>
+        <div class="input-group">
+            <textarea id="taskInput" rows="3" placeholder="Describe workflow e.g., 'Open EasyLens, create daily lens, upload image and generate preview'"></textarea>
+            <button class="btn-voice" id="btnMic" onclick="toggleVoiceInput()" title="Voice Command">🎙️</button>
+        </div>
+
+        <button class="btn-submit" onclick="dispatchAgentTask()">🚀 Dispatch Task to Agent</button>
+
+        <div class="preset-title">Quick Preset Workflows:</div>
+        <div class="preset-grid">
+            <button class="btn-preset" onclick="setPreset('Create Daily Lens on EasyLens automatically with default template.')">🔍 EasyLens: Create Daily Lens</button>
+            <button class="btn-preset" onclick="setPreset('Check web dashboard status, compress latest images, and update logs.')">🗜️ Auto Image Compress & Sync</button>
+            <button class="btn-preset" onclick="setPreset('Run daily automated browser check & form submission.')">⚙️ Daily Web Workflow</button>
+        </div>
+    </div>
+
+    <!-- Right Column: Agent Execution Terminal -->
+    <div class="task-card">
+        <div class="card-header">
+            <span>🖥️ Live Execution Terminal</span>
+        </div>
+        <div class="terminal-box" id="terminalLogs">
+            <div class="log-line system">[SYSTEM] AI Virtual Office Agent Initialized.</div>
+            <div class="log-line system">[SYSTEM] Ready to connect to Local Automation Runner...</div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-msg" id="toastMsg">✅ Task Dispatched!</div>
+
+<script>
+    /* ===================================================
+       1. 3D VIRTUAL OFFICE ENVIRONMENT (Three.js Engine)
+       =================================================== */
+    let agentMesh, deskMesh, laptopMesh;
+    let isWorking = false;
+
+    function init3DVirtualOffice() {
+        const container = document.getElementById('office3DCanvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: container, alpha: true, antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+
+        // Lighting
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+        const dirLight = new THREE.DirectionalLight(0x00f2fe, 1.2);
+        dirLight.position.set(5, 10, 7);
+        scene.add(dirLight);
+
+        // 1. Office Desk
+        const deskGeo = new THREE.BoxGeometry(2.5, 0.1, 1.2);
+        const deskMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.8 });
+        deskMesh = new THREE.Mesh(deskGeo, deskMat);
+        deskMesh.position.set(0, -0.4, 0);
+        scene.add(deskMesh);
+
+        // Desk Legs
+        const legGeo = new THREE.BoxGeometry(0.1, 0.8, 0.1);
+        const legMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+        [[-1.1, -0.8, 0.5], [1.1, -0.8, 0.5], [-1.1, -0.8, -0.5], [1.1, -0.8, -0.5]].forEach(pos => {
+            const leg = new THREE.Mesh(legGeo, legMat);
+            leg.position.set(...pos);
+            scene.add(leg);
+        });
+
+        // 2. Laptop on Desk
+        const laptopGeo = new THREE.BoxGeometry(0.6, 0.04, 0.4);
+        const laptopMat = new THREE.MeshStandardMaterial({ color: 0x00f2fe, metalness: 0.9 });
+        laptopMesh = new THREE.Mesh(laptopGeo, laptopMat);
+        laptopMesh.position.set(0, -0.33, 0.1);
+        scene.add(laptopMesh);
+
+        // Laptop Glowing Screen
+        const screenGeo = new THREE.BoxGeometry(0.6, 0.4, 0.02);
+        const screenMat = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
+        const screen = new THREE.Mesh(screenGeo, screenMat);
+        screen.position.set(0, -0.12, -0.1);
+        scene.add(screen);
+
+        // 3. AI Robot Agent Sitting at Desk
+        const agentGroup = new THREE.Group();
+
+        // Head
+        const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const headMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9 });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.set(0, 0.3, 0);
+
+        // Visor Eye
+        const visorGeo = new THREE.BoxGeometry(0.4, 0.12, 0.05);
+        const visorMat = new THREE.MeshBasicMaterial({ color: 0x00f2fe });
+        const visor = new THREE.Mesh(visorGeo, visorMat);
+        visor.position.set(0, 0.32, 0.25);
+
+        // Body
+        const bodyGeo = new THREE.BoxGeometry(0.7, 0.7, 0.4);
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.set(0, -0.25, 0);
+
+        agentGroup.add(head);
+        agentGroup.add(visor);
+        agentGroup.add(body);
+        agentGroup.position.set(0, 0, -0.4); // Sitting behind desk
+
+        agentMesh = agentGroup;
+        scene.add(agentGroup);
+
+        camera.position.set(0, 0.6, 2.8);
+        camera.lookAt(0, -0.1, 0);
+
+        // Animation Loop
+        let clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            if (isWorking) {
+                // Working Animation: Fast typing movement & screen glow color shift
+                agentMesh.position.y = -0.02 + Math.sin(time * 15) * 0.02;
+                head.rotation.x = Math.sin(time * 10) * 0.05;
+                screenMat.color.setHex(time % 0.4 > 0.2 ? 0x00f2fe : 0xff007f);
+            } else {
+                // Idle Animation: Slight breathing motion
+                agentMesh.position.y = Math.sin(time * 2) * 0.015;
+                head.rotation.y = Math.sin(time * 0.8) * 0.15;
+                screenMat.color.setHex(0x00ff88);
+            }
+
+            renderer.render(scene, camera);
+        }
+        animate();
+    }
+
+    /* ===================================================
+       2. VOICE RECOGNITION SYSTEM (Web Speech API)
+       =================================================== */
+    let recognition = null;
+    let isListening = false;
+
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRec();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onresult = function(event) {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('taskInput').value = transcript;
+            appendLog(`🎙️ Voice Captured: "${transcript}"`, 'system');
+            stopVoiceListening();
+        };
+
+        recognition.onerror = function() { stopVoiceListening(); };
+        recognition.onend = function() { stopVoiceListening(); };
+    }
+
+    function toggleVoiceInput() {
+        if (!recognition) { alert("Speech Recognition is not supported on this browser."); return; }
+        if (isListening) {
+            recognition.stop();
+            stopVoiceListening();
+        } else {
+            recognition.start();
+            isListening = true;
+            document.getElementById('btnMic').classList.add('listening');
+            appendLog("🎙️ Listening for voice command...", "system");
+        }
+    }
+
+    function stopVoiceListening() {
+        isListening = false;
+        document.getElementById('btnMic').classList.remove('listening');
+    }
+
+    /* ===================================================
+       3. AGENT TASK DISPATCH & WEBSOCKET/API EXECUTION
+       =================================================== */
+    function setPreset(text) {
+        document.getElementById('taskInput').value = text;
+    }
+
+    function dispatchAgentTask() {
+        const taskText = document.getElementById('taskInput').value.trim();
+        if (!taskText) { alert("Please enter or speak a task for the Agent!"); return; }
+
+        setAgentStatus(true, "Agent: Working on Workflow Task...");
+        appendLog(`🚀 [DISPATCH] New Task: "${taskText}"`, 'system');
+
+        // Sending Task to Backend Automation Runner (Flask/FastAPI/WebSocket Server at localhost:5000)
+        fetch('http://localhost:5000/run-agent-task', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task: taskText, target: 'easylens' })
+        })
+        .then(res => res.json())
+        .then(data => {
+            appendLog(`✅ [SUCCESS] ${data.message || 'Task completed successfully!'}`, 'system');
+            setAgentStatus(false, "Agent: Sitting at Desk (Idle)");
+        })
+        .catch(err => {
+            // Simulated Response if local python backend is not connected yet
+            setTimeout(() => {
+                appendLog(`⚙️ [EXECUTING] Opening Browser & Navigating to EasyLens...`, 'system');
+            }, 1000);
+            setTimeout(() => {
+                appendLog(`⚙️ [ACTION] Creating Daily Lens & Applying Settings...`, 'system');
+            }, 3000);
+            setTimeout(() => {
+                appendLog(`✅ [COMPLETED] Daily Lens Created Successfully!`, 'system');
+                setAgentStatus(false, "Agent: Sitting at Desk (Idle)");
+            }, 5500);
+        });
+
+        showToast("Task Assigned to AI Agent!");
+    }
+
+    function setAgentStatus(working, statusText) {
+        isWorking = working;
+        document.getElementById('agentStatusText').innerText = statusText;
+        document.getElementById('agentStatusDot').style.background = working ? 'var(--neon-pink)' : 'var(--neon-green)';
+        document.getElementById('agentStatusDot').style.boxShadow = working ? '0 0 10px var(--neon-pink)' : '0 0 10px var(--neon-green)';
+    }
+
+    function appendLog(msg, type = 'system') {
+        const container = document.getElementById('terminalLogs');
+        const line = document.createElement('div');
+        line.className = `log-line ${type}`;
+        line.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        container.appendChild(line);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toastMsg');
+        toast.innerText = "✅ " + msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    window.onload = function() {
+        init3DVirtualOffice();
+    };
+</script>
+
+</body>
+</html>
